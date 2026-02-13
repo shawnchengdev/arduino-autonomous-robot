@@ -32,7 +32,6 @@ const int TURN_THRESHOLD = 5; // How close the object must be to the center befo
 
 // Variable initialization
 int current_mode = 1; // Which stage in competition the rover is in
-int previous_turn_direction = 0; // #TODO Implement this track the last turn direction to find the line
 
 // Structures declarations
 struct IRSensorState
@@ -57,7 +56,7 @@ struct MotorSpeeds
 };
 
 // Lists half of the sensors output, and what speed should be returned
-// Only lists half since the output could be mirrored to show represent either side
+// Only lists half since the output represent either side
 // The order: Center sensor, Inner sensor, Outer sensor
 const IRSensorState IR_SENSOR_STATES[8] = 
 {
@@ -102,17 +101,13 @@ void loop()
 {
   if (current_mode == 0)
   {
-    // Off
+    line_following();
   }
   else if (current_mode == 1) 
   {
-    line_following();
-  } 
-  else if (current_mode == 2)
-  {
     // Pixy cam tracking
   } 
-  else if (current_mode == 3)
+  else if (current_mode == 2)
   {
     // Grabbing and lifting can
   } 
@@ -146,23 +141,13 @@ void run_motors(const MotorSpeeds& motor_speeds)
 {
   left_motor.setSpeed(motor_speeds.left_motor);
   right_motor.setSpeed(motor_speeds.right_motor);
-
-  // #TODO: Track previous_turn_direction here
 }
 
-// Runs both motors to make the rover spin depending on the previous_turn_direction
+// Runs both motors in reverse to find the line
 void find_line()
 {
-  if (previous_turn_direction > 0)
-  {
-    left_motor.setSpeed(MIN_SPEED);
-    right_motor.setSpeed(-MAX_SPEED);
-  }
-  else
-  {
-    left_motor.setSpeed(MAX_SPEED);
-    right_motor.setSpeed(-MIN_SPEED);
-  }
+  left_motor.setSpeed(-MAX_SPEED);
+  right_motor.setSpeed(MAX_SPEED);
 }
 
 // Stops the motors
@@ -193,11 +178,12 @@ void line_following()
   if (ir_values.center && ir_values.left1 && ir_values.right1)
   {
     stop_motors();
+    current_mode = 1;
   }
   // The rover goes straight forward when there is conflicting data on where the line is going
   else if ((ir_values.left2 || ir_values.left1) && (ir_values.right1 || ir_values.right2))
   {
-    MotorSpeeds motor_speeds = {0, 0};
+    MotorSpeeds motor_speeds = {255, -255};
     run_motors(motor_speeds);
   }
   // The rover goes forward with the possibility of turning when the one of the sensors detects the line.
@@ -206,7 +192,7 @@ void line_following()
     MotorSpeeds motor_speeds = get_motor_speeds(ir_values);
     run_motors(motor_speeds);
   }
-  // The rover spins in a circle if none of the sensors detect the line
+  // The rover reverses if none of the sensors detect the line
   else
   {
     find_line();
